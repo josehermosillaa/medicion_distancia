@@ -1,14 +1,35 @@
+import pandas as pd
+import time
+from tqdm import tqdm
 from selenium import webdriver
-
-chromedrive_path = './chromedriver'
-driver = webdriver.Chrome()
-url = 'https://www.google.com/maps/dir/-33.451555%09-70.642371/Bandera+%26+Catedral,+Santiago,+Regi%C3%B3n+Metropolitana/@-33.4429626,-70.6537405,16z/data=!3m1!4b1!4m12!4m11!1m3!2m2!1d-70.644469!2d-33.448255!1m5!1m1!1s0x9662c5a48deb345d:0x86bab168cee06472!2m2!1d-70.6526371!2d-33.4375024!3e2?entry=ttu'
-	
-
-driver.get(url)
-page_content = driver.page_source
 from parsel import Selector
-response = Selector(page_content)
-results = response.xpath('//div[@class="XdKEzd"]/div[@class="ivN21e tUEI8e fontBodyMedium"]/text()')
-print(results[0].get())
+from selenium.webdriver.common.by import By
+chromedrive_path = './chromedriver'
 
+	
+xls = pd.ExcelFile('estaciones_proyectos.xlsx')
+estaciones = pd.read_excel(xls, sheet_name='errores')
+medicion = []
+id_permiso = []
+metro = []
+linea = []
+for i, data in tqdm(estaciones.iterrows()):
+    url = f"https://www.google.com/maps/dir/{data['latitude']}%09{data['longitude']}/{data['Ubicación']}/"
+    driver = webdriver.Chrome()
+    driver.get(url) 
+    id_permiso.append(data['id_permiso'])
+    metro.append(data['Estación'])
+    linea.append(data['Linea'])
+    button = driver.find_element(By.XPATH, '//div[@data-travel_mode="2"]')
+    button.click()
+    time.sleep(1)
+    page_content = driver.page_source
+
+    response = Selector(page_content)
+    results = response.xpath('//div[@class="XdKEzd"]/div[@class="ivN21e tUEI8e fontBodyMedium"]/text()')
+    # print(results[0].get())
+    medicion.append(results[0].get() if results else "error")
+    driver.quit()
+columnas = ['id_permiso','Estación', 'Linea', 'Medición']
+df = pd.DataFrame(list(zip(id_permiso,metro,linea,medicion)), columns=columnas)
+df.to_excel('nuevo_excel.xlsx',index=False)
